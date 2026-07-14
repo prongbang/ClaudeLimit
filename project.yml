@@ -1,0 +1,56 @@
+name: ClaudeLimit
+options:
+  bundleIdPrefix: dev.prongbang
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    # Set your own Team ID so the App Group works
+    # DEVELOPMENT_TEAM: XXXXXXXXXX
+    CODE_SIGN_STYLE: Automatic
+
+targets:
+  ClaudeLimit:
+    type: application
+    platform: macOS
+    sources:
+      - App
+      - Shared
+    entitlements:
+      path: App/ClaudeLimit.entitlements
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: ClaudeLimit
+        LSUIElement: true            # menu bar only, no Dock icon
+        NSHumanReadableCopyright: ""
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.prongbang.claudelimit
+        ENABLE_HARDENED_RUNTIME: true
+    dependencies:
+      - target: ClaudeLimitWidgetExtension
+        embed: true
+
+  ClaudeLimitWidgetExtension:
+    type: app-extension
+    platform: macOS
+    sources:
+      - Widget
+      - Shared
+    entitlements:
+      path: Widget/ClaudeLimitWidget.entitlements
+    info:
+      path: Widget/Info.plist
+      properties:
+        CFBundleDisplayName: ClaudeLimit Widget
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.prongbang.claudelimit.widget
+        ENABLE_HARDENED_RUNTIME: true
+        SKIP_INSTALL: true
