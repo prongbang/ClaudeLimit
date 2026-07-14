@@ -1,8 +1,27 @@
-# ClaudeLimit
+<div align="center">
+  <img src="assets/logo.svg" width="110" alt="ClaudeLimit logo">
+  <h1>ClaudeLimit</h1>
+  <p>
+    Menu bar app + macOS widget showing Claude Code usage limits<br>
+    (5-hour session / weekly / per-model) — the same data as Claude Code's <code>/usage</code> command.
+  </p>
+  <p>
+    <a href="https://github.com/prongbang/ClaudeLimit/releases/latest">
+      <img src="https://img.shields.io/badge/Download%20DMG-macOS%2014%2B-D97757?style=for-the-badge&logo=apple&logoColor=white" alt="Download DMG">
+    </a>
+    <a href="https://github.com/prongbang/ClaudeLimit/releases">
+      <img src="https://img.shields.io/github/v/release/prongbang/ClaudeLimit?style=for-the-badge&label=release&color=2ea44f" alt="Latest release">
+    </a>
+  </p>
+  <img src="assets/preview.svg" width="600" alt="ClaudeLimit menu bar and popover preview">
+</div>
 
-Menu bar app + macOS widget showing Claude Code usage limits
-(5-hour session / weekly / per-model, e.g. Fable) — the same data as
-Claude Code's `/usage` command.
+## Install
+
+1. Download the DMG from the [latest release](https://github.com/prongbang/ClaudeLimit/releases/latest)
+2. Open it and drag **ClaudeLimit** into **Applications**
+3. First launch: right-click the app → **Open** (release DMGs are ad-hoc signed,
+   so macOS asks once), then allow Keychain access with **Always Allow**
 
 ## How it works
 

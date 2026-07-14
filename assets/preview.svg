@@ -1,0 +1,69 @@
+<svg viewBox="0 0 760 800" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <!-- Menu bar strip -->
+  <rect x="210" y="24" width="340" height="54" rx="16" fill="#232428" stroke="#3A3B41" stroke-width="1"/>
+  <g>
+    <text x="246" y="56" font-size="12" fill="#9A9AA0" font-weight="600">5h</text>
+    <text x="270" y="51" font-size="15" fill="#FFA028" font-weight="700">56%</text>
+    <rect x="270" y="58" width="44" height="5" rx="2.5" fill="#3D3E44"/>
+    <rect x="270" y="58" width="25" height="5" rx="2.5" fill="#FFA028"/>
+  </g>
+  <g>
+    <text x="352" y="56" font-size="12" fill="#9A9AA0" font-weight="600">7d</text>
+    <text x="376" y="51" font-size="15" fill="#32D74B" font-weight="700">7%</text>
+    <rect x="376" y="58" width="44" height="5" rx="2.5" fill="#3D3E44"/>
+    <rect x="376" y="58" width="6" height="5" rx="2.5" fill="#32D74B"/>
+  </g>
+  <g>
+    <text x="458" y="56" font-size="12" fill="#9A9AA0" font-weight="600">7d</text>
+    <text x="482" y="51" font-size="15" fill="#32D74B" font-weight="700">9%</text>
+    <rect x="482" y="58" width="44" height="5" rx="2.5" fill="#3D3E44"/>
+    <rect x="482" y="58" width="8" height="5" rx="2.5" fill="#32D74B"/>
+  </g>
+
+  <!-- Popover -->
+  <rect x="110" y="104" width="540" height="660" rx="26" fill="#1C1D22" stroke="#3A3B41" stroke-width="1"/>
+
+  <!-- Header -->
+  <text x="144" y="156" font-size="22" font-weight="700" fill="#F2F2F5">Plan usage limits</text>
+  <rect x="342" y="134" width="64" height="30" rx="15" fill="#17304D"/>
+  <text x="374" y="155" font-size="15" font-weight="600" fill="#58A6FF" text-anchor="middle">Max</text>
+  <path d="M 620 140 a 9 9 0 1 1 -6.4 2.6" fill="none" stroke="#9A9AA0" stroke-width="2" stroke-linecap="round"/>
+  <path d="M 610 138 l 4 4 l -6 2 z" fill="#9A9AA0"/>
+
+  <!-- Current session card -->
+  <rect x="140" y="182" width="480" height="200" rx="16" fill="#25262C"/>
+  <circle cx="170" cy="215" r="8" fill="none" stroke="#8E8E95" stroke-width="1.8"/>
+  <path d="M 170 210.5 v 4.5 h 4" fill="none" stroke="#8E8E95" stroke-width="1.8" stroke-linecap="round"/>
+  <text x="190" y="221" font-size="13" font-weight="600" letter-spacing="2.5" fill="#9A9AA1">CURRENT SESSION</text>
+  <text x="166" y="296" font-size="48" font-weight="800" fill="#FFA028">56</text>
+  <text x="232" y="294" font-size="22" font-weight="600" fill="#8E8E95">%</text>
+  <circle cx="452" cy="284" r="8" fill="none" stroke="#A0A0A8" stroke-width="1.6"/>
+  <path d="M 452 279.5 v 4.5 h 4" fill="none" stroke="#A0A0A8" stroke-width="1.6" stroke-linecap="round"/>
+  <text x="596" y="290" font-size="15" fill="#A0A0A8" text-anchor="end">Resets in 2h 27m</text>
+  <rect x="166" y="330" width="428" height="9" rx="4.5" fill="#3A3B42"/>
+  <rect x="166" y="330" width="240" height="9" rx="4.5" fill="#FFA028"/>
+
+  <!-- Weekly limits card -->
+  <rect x="140" y="406" width="480" height="290" rx="16" fill="#25262C"/>
+  <rect x="162" y="430" width="16" height="15" rx="3" fill="none" stroke="#8E8E95" stroke-width="1.8"/>
+  <path d="M 162 435 h 16" stroke="#8E8E95" stroke-width="1.4"/>
+  <text x="190" y="445" font-size="13" font-weight="600" letter-spacing="2.5" fill="#9A9AA1">WEEKLY LIMITS</text>
+
+  <text x="166" y="497" font-size="17" font-weight="600" fill="#EDEDF0">All models</text>
+  <text x="594" y="497" font-size="17" font-weight="700" fill="#32D74B" text-anchor="end">7%</text>
+  <rect x="166" y="510" width="428" height="8" rx="4" fill="#3A3B42"/>
+  <rect x="166" y="510" width="30" height="8" rx="4" fill="#32D74B"/>
+  <text x="166" y="544" font-size="13" fill="#7A7A82">Resets in 6d 5h</text>
+
+  <line x1="166" y1="566" x2="594" y2="566" stroke="#35363C" stroke-width="1"/>
+
+  <text x="166" y="607" font-size="17" font-weight="600" fill="#EDEDF0">Fable</text>
+  <text x="594" y="607" font-size="17" font-weight="700" fill="#32D74B" text-anchor="end">9%</text>
+  <rect x="166" y="620" width="428" height="8" rx="4" fill="#3A3B42"/>
+  <rect x="166" y="620" width="38" height="8" rx="4" fill="#32D74B"/>
+  <text x="166" y="654" font-size="13" fill="#7A7A82">Resets in 6d 5h</text>
+
+  <!-- Footer -->
+  <text x="144" y="734" font-size="14" fill="#6E6E76">Updated 21:42</text>
+  <text x="616" y="734" font-size="15" fill="#A0A0A8" text-anchor="end">Quit</text>
+</svg>
