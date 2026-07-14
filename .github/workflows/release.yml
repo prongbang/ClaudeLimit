@@ -26,6 +26,11 @@ permissions:
 jobs:
   release:
     runs-on: macos-latest
+    # secrets.* cannot be referenced in step-level `if`, so expose presence
+    # flags via job env instead.
+    env:
+      HAS_SIGNING: ${{ secrets.MACOS_CERT_P12 != '' }}
+      HAS_NOTARY: ${{ secrets.APPLE_ID != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,7 +43,7 @@ jobs:
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
       - name: Import Developer ID certificate
-        if: ${{ secrets.MACOS_CERT_P12 != '' }}
+        if: ${{ env.HAS_SIGNING == 'true' }}
         env:
           MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
           MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
@@ -59,7 +64,7 @@ jobs:
           echo "SIGN_IDENTITY=$SIGN_IDENTITY" >> "$GITHUB_ENV"
 
       - name: Set up notarization profile
-        if: ${{ secrets.APPLE_ID != '' }}
+        if: ${{ env.HAS_NOTARY == 'true' }}
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
