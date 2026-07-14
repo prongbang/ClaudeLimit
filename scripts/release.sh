@@ -17,8 +17,9 @@
 #   xcrun notarytool store-credentials "claudelimit-notary" \
 #     --apple-id you@example.com --team-id TEAMID --password <app-specific-password>
 #
-# Without SIGN_IDENTITY the app is ad-hoc signed: fine for your own machine,
-# but anyone else must right-click the app > Open on first launch.
+# Without SIGN_IDENTITY (or with SIGN_IDENTITY="-") the app is ad-hoc signed:
+# fine for your own machine, but anyone else must right-click the app > Open
+# on first launch.
 
 set -euo pipefail
 
@@ -65,12 +66,13 @@ APPEX_PATH="$APP_PATH/Contents/PlugIns/${APP_NAME}WidgetExtension.appex"
 [[ -d "$APP_PATH" ]] || { echo "Build product not found: $APP_PATH" >&2; exit 1; }
 
 # --- 2. Code sign (inside-out: widget extension first, then the app) ------
-if [[ -n "$SIGN_IDENTITY" ]]; then
+if [[ -n "$SIGN_IDENTITY" && "$SIGN_IDENTITY" != "-" ]]; then
   log "Signing with: $SIGN_IDENTITY (hardened runtime + timestamp)"
   SIGN_FLAGS=(--force --timestamp --options runtime --sign "$SIGN_IDENTITY")
 else
-  warn "SIGN_IDENTITY not set — ad-hoc signing (Gatekeeper will warn on other Macs)"
+  warn "Ad-hoc signing (SIGN_IDENTITY \"-\" or unset) — Gatekeeper will warn on other Macs"
   SIGN_FLAGS=(--force --sign -)
+  SIGN_IDENTITY=""
 fi
 
 codesign "${SIGN_FLAGS[@]}" --entitlements "$WIDGET_ENTITLEMENTS" "$APPEX_PATH"
