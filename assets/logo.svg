@@ -1,0 +1,11 @@
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- ClaudeLimit — minimal gauge mark -->
+  <!-- Background squircle (macOS icon grid: 896x896 with 64px margin) -->
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="#F0EDE4"/>
+  <!-- Gauge track: 270° arc from 135° to 45° -->
+  <path d="M 319.7 728.3 A 272 272 0 1 1 704.3 728.3"
+        fill="none" stroke="#DCD5C3" stroke-width="84" stroke-linecap="round"/>
+  <!-- Progress: ~65% of the track, Claude terracotta -->
+  <path d="M 319.7 728.3 A 272 272 0 0 1 688.8 329.3"
+        fill="none" stroke="#D97757" stroke-width="84" stroke-linecap="round"/>
+</svg>
