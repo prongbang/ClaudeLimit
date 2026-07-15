@@ -20,7 +20,7 @@ enum UsageAPI {
     /// Same data source as Claude Code's `/usage` command.
     /// Poll at >= 180s intervals to stay under the rate limit.
     static func fetch() async throws -> UsageSnapshot {
-        let token = try CredentialsProvider.accessToken()
+        let token = try await CredentialsProvider.accessToken()
 
         var request = URLRequest(url: endpoint)
         request.httpMethod = "GET"

@@ -4,6 +4,7 @@ import Security
 enum CredentialsError: LocalizedError {
     case notFound
     case expired(Date)
+    case refreshFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -11,42 +12,123 @@ enum CredentialsError: LocalizedError {
             return "Claude Code credentials not found — run claude in Terminal first"
         case .expired(let date):
             return "Token expired at \(date.formatted()) — run claude to refresh"
+        case .refreshFailed(let reason):
+            return "Token auto-refresh failed (\(reason)) — run claude to sign in again"
         }
     }
 }
 
 /// Reads the Claude Code OAuth access token.
 /// Order: env var → macOS Keychain → ~/.claude/.credentials.json
+/// An expired token is refreshed automatically using the stored refresh token
+/// (same OAuth client as Claude Code) and the rotated credentials are written
+/// back to the source so Claude Code itself keeps working.
 enum CredentialsProvider {
 
-    static func accessToken() throws -> String {
+    private static let service = "Claude Code-credentials"
+    private static let tokenEndpoint = URL(string: "https://console.anthropic.com/v1/oauth/token")!
+    /// Claude Code's public OAuth client id.
+    private static let clientID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
+
+    private enum Source { case keychain, file }
+
+    static func accessToken() async throws -> String {
         if let env = ProcessInfo.processInfo.environment["CLAUDE_CODE_OAUTH_TOKEN"],
            !env.isEmpty {
             return env
         }
-        if let data = keychainCredentials() ?? fileCredentials() {
-            return try parse(data)
+        guard let (data, source) = rawCredentials(),
+              var root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              var oauth = root["claudeAiOauth"] as? [String: Any],
+              let token = oauth["accessToken"] as? String else {
+            throw CredentialsError.notFound
         }
-        throw CredentialsError.notFound
+
+        let expiry = (oauth["expiresAt"] as? Double).map { Date(timeIntervalSince1970: $0 / 1000) }
+        // 60s buffer
+        guard let expiry, expiry.timeIntervalSinceNow < 60 else { return token }
+
+        // Expired (or about to expire): exchange the refresh token for new credentials.
+        guard let refreshToken = oauth["refreshToken"] as? String, !refreshToken.isEmpty else {
+            throw CredentialsError.expired(expiry)
+        }
+        let fresh = try await refresh(with: refreshToken)
+
+        oauth["accessToken"] = fresh.accessToken
+        oauth["expiresAt"] = Int((Date().timeIntervalSince1970 + Double(fresh.expiresIn)) * 1000)
+        // The refresh token may rotate — persisting it is what keeps
+        // Claude Code's own copy valid.
+        if let rotated = fresh.refreshToken { oauth["refreshToken"] = rotated }
+        root["claudeAiOauth"] = oauth
+        if let updated = try? JSONSerialization.data(withJSONObject: root) {
+            persist(updated, to: source)
+        }
+        return fresh.accessToken
     }
 
     /// Subscription plan from the credentials payload (e.g. "max", "pro"), if present.
     static func subscriptionType() -> String? {
-        guard let data = keychainCredentials() ?? fileCredentials() else { return nil }
-        struct Credentials: Decodable {
-            struct OAuth: Decodable { let subscriptionType: String? }
-            let claudeAiOauth: OAuth
+        guard let (data, _) = rawCredentials(),
+              let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let oauth = root["claudeAiOauth"] as? [String: Any] else { return nil }
+        return oauth["subscriptionType"] as? String
+    }
+
+    // MARK: - Refresh
+
+    private struct RefreshResponse: Decodable {
+        let accessToken: String
+        let refreshToken: String?
+        let expiresIn: Int
+
+        enum CodingKeys: String, CodingKey {
+            case accessToken = "access_token"
+            case refreshToken = "refresh_token"
+            case expiresIn = "expires_in"
         }
-        return (try? JSONDecoder().decode(Credentials.self, from: data))?
-            .claudeAiOauth.subscriptionType
+    }
+
+    private static func refresh(with refreshToken: String) async throws -> RefreshResponse {
+        var request = URLRequest(url: tokenEndpoint)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "grant_type": "refresh_token",
+            "refresh_token": refreshToken,
+            "client_id": clientID,
+        ])
+        request.timeoutInterval = 15
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw CredentialsError.refreshFailed("no response")
+        }
+        guard http.statusCode == 200 else {
+            throw CredentialsError.refreshFailed("HTTP \(http.statusCode)")
+        }
+        guard let parsed = try? JSONDecoder().decode(RefreshResponse.self, from: data) else {
+            throw CredentialsError.refreshFailed("unexpected response")
+        }
+        return parsed
     }
 
     // MARK: - Sources
 
+    private static func rawCredentials() -> (Data, Source)? {
+        if let data = keychainCredentials() { return (data, .keychain) }
+        if let data = try? Data(contentsOf: credentialsFileURL) { return (data, .file) }
+        return nil
+    }
+
+    private static var credentialsFileURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".claude/.credentials.json")
+    }
+
     private static func keychainCredentials() -> Data? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: "Claude Code-credentials",
+            kSecAttrService as String: service,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]
@@ -56,32 +138,17 @@ enum CredentialsProvider {
         return result as? Data
     }
 
-    private static func fileCredentials() -> Data? {
-        let url = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".claude/.credentials.json")
-        return try? Data(contentsOf: url)
-    }
-
-    // MARK: - Parsing
-
-    private static func parse(_ data: Data) throws -> String {
-        struct Credentials: Decodable {
-            struct OAuth: Decodable {
-                let accessToken: String
-                let expiresAt: Double? // epoch milliseconds
-            }
-            let claudeAiOauth: OAuth
+    private static func persist(_ data: Data, to source: Source) {
+        switch source {
+        case .keychain:
+            let query: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: service,
+            ]
+            let update: [String: Any] = [kSecValueData as String: data]
+            SecItemUpdate(query as CFDictionary, update as CFDictionary)
+        case .file:
+            try? data.write(to: credentialsFileURL, options: .atomic)
         }
-        guard let creds = try? JSONDecoder().decode(Credentials.self, from: data) else {
-            throw CredentialsError.notFound
-        }
-        if let ms = creds.claudeAiOauth.expiresAt {
-            let expiry = Date(timeIntervalSince1970: ms / 1000)
-            // 60s buffer
-            if expiry.timeIntervalSinceNow < 60 {
-                throw CredentialsError.expired(expiry)
-            }
-        }
-        return creds.claudeAiOauth.accessToken
     }
 }
