@@ -18,6 +18,10 @@ struct MenuContentView: View {
                 errorBanner(error)
             }
 
+            if model.tokenExpired {
+                refreshTokenButton
+            }
+
             footer
         }
         .padding(14)
@@ -128,6 +132,28 @@ struct MenuContentView: View {
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private var refreshTokenButton: some View {
+        Button {
+            Task { await model.refreshToken() }
+        } label: {
+            HStack(spacing: 6) {
+                if model.isRefreshingToken {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Image(systemName: "key.horizontal.fill")
+                }
+                Text(model.isRefreshingToken ? "Refreshing…" : "Refresh token")
+                    .font(.subheadline.weight(.semibold))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(Color.accentColor)
+        .disabled(model.isRefreshingToken)
+        .help("Exchange the stored refresh token for a new access token")
     }
 
     private var footer: some View {

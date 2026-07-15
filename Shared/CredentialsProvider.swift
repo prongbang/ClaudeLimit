@@ -32,14 +32,14 @@ enum CredentialsProvider {
 
     private enum Source: Equatable { case keychain(account: String), file }
 
-    static func accessToken() async throws -> String {
+    static func accessToken() throws -> String {
         if let env = ProcessInfo.processInfo.environment["CLAUDE_CODE_OAUTH_TOKEN"],
            !env.isEmpty {
             return env
         }
-        guard let (data, source) = rawCredentials(),
-              var root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-              var oauth = root["claudeAiOauth"] as? [String: Any],
+        guard let (data, _) = rawCredentials(),
+              let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let oauth = root["claudeAiOauth"] as? [String: Any],
               let token = oauth["accessToken"] as? String else {
             throw CredentialsError.notFound
         }
@@ -47,10 +47,20 @@ enum CredentialsProvider {
         let expiry = (oauth["expiresAt"] as? Double).map { Date(timeIntervalSince1970: $0 / 1000) }
         // 60s buffer
         guard let expiry, expiry.timeIntervalSinceNow < 60 else { return token }
+        throw CredentialsError.expired(expiry)
+    }
 
-        // Expired (or about to expire): exchange the refresh token for new credentials.
+    /// Exchanges the stored refresh token for new credentials and persists
+    /// them back to the source. User-initiated only — it writes to the
+    /// Keychain, which may trigger an authorization prompt.
+    static func refreshExpiredToken() async throws {
+        guard let (data, source) = rawCredentials(),
+              var root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              var oauth = root["claudeAiOauth"] as? [String: Any] else {
+            throw CredentialsError.notFound
+        }
         guard let refreshToken = oauth["refreshToken"] as? String, !refreshToken.isEmpty else {
-            throw CredentialsError.expired(expiry)
+            throw CredentialsError.refreshFailed("no refresh token")
         }
         let fresh = try await refresh(with: refreshToken)
 
@@ -63,7 +73,6 @@ enum CredentialsProvider {
         if let updated = try? JSONSerialization.data(withJSONObject: root) {
             persist(updated, to: source)
         }
-        return fresh.accessToken
     }
 
     /// Subscription plan from the credentials payload (e.g. "max", "pro"), if present.

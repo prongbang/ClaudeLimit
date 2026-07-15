@@ -26,6 +26,8 @@ final class UsageViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var planName: String?
     @Published var menuBarImage: NSImage?
+    @Published var tokenExpired = false
+    @Published var isRefreshingToken = false
     
     /// >= 180s per the endpoint's rate limit.
     private let refreshInterval: TimeInterval = 180
@@ -62,12 +64,28 @@ final class UsageViewModel: ObservableObject {
             let fresh = try await UsageAPI.fetch()
             snapshot = fresh
             errorMessage = nil
+            tokenExpired = false
             UsageStore.save(fresh)
             WidgetCenter.shared.reloadAllTimelines()
         } catch {
             errorMessage = error.localizedDescription
+            if case CredentialsError.expired = error { tokenExpired = true }
         }
         updateMenuBarImage()
+    }
+
+    /// User-initiated: exchange the refresh token, then re-fetch usage.
+    func refreshToken() async {
+        isRefreshingToken = true
+        defer { isRefreshingToken = false }
+        do {
+            try await CredentialsProvider.refreshExpiredToken()
+            tokenExpired = false
+            errorMessage = nil
+            await refresh()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     /// MenuBarExtra flattens SwiftUI labels to a template image (colors are lost),
