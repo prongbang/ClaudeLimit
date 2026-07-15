@@ -30,7 +30,7 @@ enum CredentialsProvider {
     /// Claude Code's public OAuth client id.
     private static let clientID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
 
-    private enum Source { case keychain, file }
+    private enum Source: Equatable { case keychain(account: String), file }
 
     static func accessToken() async throws -> String {
         if let env = ProcessInfo.processInfo.environment["CLAUDE_CODE_OAUTH_TOKEN"],
@@ -115,7 +115,9 @@ enum CredentialsProvider {
     // MARK: - Sources
 
     private static func rawCredentials() -> (Data, Source)? {
-        if let data = keychainCredentials() { return (data, .keychain) }
+        if let (data, account) = keychainCredentials() {
+            return (data, .keychain(account: account))
+        }
         if let data = try? Data(contentsOf: credentialsFileURL) { return (data, .file) }
         return nil
     }
@@ -125,28 +127,44 @@ enum CredentialsProvider {
             .appendingPathComponent(".claude/.credentials.json")
     }
 
-    private static func keychainCredentials() -> Data? {
+    private static func keychainCredentials() -> (Data, account: String)? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecReturnData as String: true,
+            kSecReturnAttributes as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
-        guard status == errSecSuccess else { return nil }
-        return result as? Data
+        guard status == errSecSuccess,
+              let item = result as? [String: Any],
+              let data = item[kSecValueData as String] as? Data else { return nil }
+        let account = item[kSecAttrAccount as String] as? String ?? NSUserName()
+        return (data, account)
     }
 
     private static func persist(_ data: Data, to source: Source) {
         switch source {
-        case .keychain:
-            let query: [String: Any] = [
-                kSecClass as String: kSecClassGenericPassword,
-                kSecAttrService as String: service,
-            ]
-            let update: [String: Any] = [kSecValueData as String: data]
-            SecItemUpdate(query as CFDictionary, update as CFDictionary)
+        case .keychain(let account):
+            // Write through /usr/bin/security so the item keeps its default
+            // ACL. SecItemUpdate from this app would re-scope the item to
+            // this binary only, locking out Claude Code and the security
+            // tool and causing endless keychain password prompts.
+            guard let json = String(data: data, encoding: .utf8),
+                  !json.contains("'") else { return }
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
+            process.arguments = ["-i"]
+            let stdin = Pipe()
+            process.standardInput = stdin
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            guard (try? process.run()) != nil else { return }
+            let command = "add-generic-password -U -s '\(service)' -a '\(account)' -w '\(json)'\n"
+            stdin.fileHandleForWriting.write(Data(command.utf8))
+            stdin.fileHandleForWriting.closeFile()
+            process.waitUntilExit()
         case .file:
             try? data.write(to: credentialsFileURL, options: .atomic)
         }
