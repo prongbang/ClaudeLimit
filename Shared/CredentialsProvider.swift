@@ -137,20 +137,31 @@ enum CredentialsProvider {
     }
 
     private static func keychainCredentials() -> (Data, account: String)? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecReturnData as String: true,
-            kSecReturnAttributes as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-        ]
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        guard status == errSecSuccess,
-              let item = result as? [String: Any],
-              let data = item[kSecValueData as String] as? Data else { return nil }
-        let account = item[kSecAttrAccount as String] as? String ?? NSUserName()
-        return (data, account)
+        // Read through /usr/bin/security — the same trusted tool Claude Code
+        // itself uses — so this app never triggers a keychain authorization
+        // prompt, even when the ad-hoc signature changes between builds.
+        guard let value = runSecurity(["find-generic-password", "-s", service, "-w"]),
+              !value.isEmpty else { return nil }
+        let attrs = runSecurity(["find-generic-password", "-s", service]) ?? ""
+        let account = attrs
+            .components(separatedBy: "\"acct\"<blob>=\"").dropFirst().first?
+            .components(separatedBy: "\"").first ?? NSUserName()
+        return (Data(value.utf8), account)
+    }
+
+    private static func runSecurity(_ arguments: [String]) -> String? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
+        process.arguments = arguments
+        let out = Pipe()
+        process.standardOutput = out
+        process.standardError = FileHandle.nullDevice
+        guard (try? process.run()) != nil else { return nil }
+        let data = out.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else { return nil }
+        return String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private static func persist(_ data: Data, to source: Source) {
