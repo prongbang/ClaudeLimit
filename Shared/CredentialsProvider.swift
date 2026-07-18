@@ -19,10 +19,12 @@ enum CredentialsError: LocalizedError {
 }
 
 /// Reads the Claude Code OAuth access token.
-/// Order: env var → macOS Keychain → ~/.claude/.credentials.json
-/// An expired token is refreshed automatically using the stored refresh token
-/// (same OAuth client as Claude Code) and the rotated credentials are written
-/// back to the source so Claude Code itself keeps working.
+/// Order for automatic reads: env var → ~/.claude/.credentials.json.
+/// Keychain access is reserved for explicit user actions so background polls
+/// never trigger macOS authorization prompts.
+/// An expired token can be refreshed using the stored refresh token (same OAuth
+/// client as Claude Code), and the rotated credentials are written back to the
+/// source so Claude Code itself keeps working.
 enum CredentialsProvider {
 
     private static let service = "Claude Code-credentials"
@@ -37,7 +39,7 @@ enum CredentialsProvider {
            !env.isEmpty {
             return env
         }
-        guard let (data, _) = rawCredentials(),
+        guard let (data, _) = rawCredentials(allowKeychain: false),
               let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               let oauth = root["claudeAiOauth"] as? [String: Any],
               let token = oauth["accessToken"] as? String else {
@@ -54,7 +56,7 @@ enum CredentialsProvider {
     /// them back to the source. User-initiated only — it writes to the
     /// Keychain, which may trigger an authorization prompt.
     static func refreshExpiredToken() async throws {
-        guard let (data, source) = rawCredentials(),
+        guard let (data, source) = rawCredentials(allowKeychain: true),
               var root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               var oauth = root["claudeAiOauth"] as? [String: Any] else {
             throw CredentialsError.notFound
@@ -77,7 +79,7 @@ enum CredentialsProvider {
 
     /// Subscription plan from the credentials payload (e.g. "max", "pro"), if present.
     static func subscriptionType() -> String? {
-        guard let (data, _) = rawCredentials(),
+        guard let (data, _) = rawCredentials(allowKeychain: false),
               let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               let oauth = root["claudeAiOauth"] as? [String: Any] else { return nil }
         return oauth["subscriptionType"] as? String
@@ -123,11 +125,12 @@ enum CredentialsProvider {
 
     // MARK: - Sources
 
-    private static func rawCredentials() -> (Data, Source)? {
+    private static func rawCredentials(allowKeychain: Bool) -> (Data, Source)? {
+        if let data = fileCredentials() { return (data, .file) }
+        guard allowKeychain else { return nil }
         if let (data, account) = keychainCredentials() {
             return (data, .keychain(account: account))
         }
-        if let data = try? Data(contentsOf: credentialsFileURL) { return (data, .file) }
         return nil
     }
 
@@ -136,10 +139,14 @@ enum CredentialsProvider {
             .appendingPathComponent(".claude/.credentials.json")
     }
 
+    private static func fileCredentials() -> Data? {
+        try? Data(contentsOf: credentialsFileURL)
+    }
+
     private static func keychainCredentials() -> (Data, account: String)? {
-        // Read through /usr/bin/security — the same trusted tool Claude Code
-        // itself uses — so this app never triggers a keychain authorization
-        // prompt, even when the ad-hoc signature changes between builds.
+        // Read through /usr/bin/security for compatibility with Claude Code's
+        // item format. This path is intentionally kept out of automatic polls
+        // because it can still trigger a macOS authorization prompt.
         guard let value = runSecurity(["find-generic-password", "-s", service, "-w"]),
               !value.isEmpty else { return nil }
         let attrs = runSecurity(["find-generic-password", "-s", service]) ?? ""

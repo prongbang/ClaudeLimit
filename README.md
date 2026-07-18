@@ -21,12 +21,16 @@
 1. Download the DMG from the [latest release](https://github.com/prongbang/ClaudeLimit/releases/latest)
 2. Open it and drag **ClaudeLimit** into **Applications**
 3. First launch: right-click the app → **Open** (release DMGs are ad-hoc signed,
-   so macOS asks once), then allow Keychain access with **Always Allow**
+   so macOS asks once)
 
 ## How it works
 
-- Reads the Claude Code OAuth token from the macOS Keychain (`Claude Code-credentials`)
-  with fallbacks: `~/.claude/.credentials.json` or the `CLAUDE_CODE_OAUTH_TOKEN` env var
+- Reads the Claude Code OAuth token from `CLAUDE_CODE_OAUTH_TOKEN`, then
+  `~/.claude/.credentials.json`
+- Automatic background refreshes avoid the macOS Keychain, so the app does not
+  repeatedly ask for Keychain access while polling usage
+- A user-initiated token refresh can still fall back to the Claude Code Keychain
+  item (`Claude Code-credentials`) if the credentials file is unavailable
 - Calls `GET https://api.anthropic.com/api/oauth/usage` every 180 seconds
   (polling faster gets rate limited with 429)
 - The menu bar shows session, weekly, and per-model usage at a glance;
@@ -53,8 +57,11 @@ Then in Xcode:
 
 ## After the first run
 
-- macOS will ask for permission to access Claude Code's Keychain item → click **Always Allow**
-  (if no prompt appears and the read fails, the app falls back to `~/.claude/.credentials.json`)
+- No Keychain permission is needed for normal usage polling
+- If credentials are missing, run `claude` in Terminal first so Claude Code writes
+  `~/.claude/.credentials.json`
+- If an older install already has a broken Keychain ACL prompt loop, run
+  `./scripts/fix-keychain.sh` once from Terminal
 - Add the widget: right-click the desktop → Edit Widgets → search for "Claude Limit Usage"
 
 ## Release (DMG)
@@ -73,8 +80,8 @@ others must right-click → Open on first launch.
 ## Known limitations
 
 - The endpoint is an undocumented API (community-discovered) and may change
-- The access token expires after ~60 minutes and is refreshed by Claude Code itself —
-  when it expires, the app shows a message asking you to run `claude` to refresh
+- The access token expires after ~60 minutes; use the in-app refresh button or
+  run `claude` in Terminal if the refresh token is no longer valid
 - The widget stays fresh only while the menu bar app is running
   (recommended: add it to Login Items)
 - The `User-Agent: claude-code/<version>` header is required — without it
